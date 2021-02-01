@@ -9,8 +9,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/klog"
 
 	mapset "github.com/deckarep/golang-set"
@@ -18,12 +16,6 @@ import (
 
 const (
 	controllerNameSpaceName string = "kube-system"
-)
-
-var (
-	runtimeScheme = runtime.NewScheme()
-	codecs        = serializer.NewCodecFactory(runtimeScheme)
-	deserializer  = codecs.UniversalDeserializer()
 )
 
 type patchOps struct {
@@ -56,7 +48,7 @@ func HandleMutate(w http.ResponseWriter, r *http.Request) {
 
 	var admissionResponse *v1beta1.AdmissionResponse
 	ar := v1beta1.AdmissionReview{}
-	_, _, err := deserializer.Decode(body, nil, &ar)
+	_, _, err := Deserializer.Decode(body, nil, &ar)
 	if err != nil {
 		klog.Errorf("Can't decode body: %s", err)
 		admissionResponse = &v1beta1.AdmissionResponse{
@@ -105,7 +97,7 @@ func mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		}
 	}
 
-	tolerationsToAdd := getTolerationsToAdd(pod)
+	tolerationsToAdd := GetExtendResourcesUsedByPod(&pod)
 
 	if (*tolerationsToAdd).Cardinality() == 0 {
 		klog.Infof("No need to mutate, Pod name: %s/%s", pod.Name, pod.Namespace)
@@ -183,27 +175,4 @@ func getTolerationObjects(tolerationsToAdd *mapset.Set) []corev1.Toleration {
 	}
 
 	return tolerations
-}
-
-func getTolerationsToAdd(pod corev1.Pod) *mapset.Set {
-	taintsSetToAdd := mapset.NewSet()
-	targetResourcesSet := GetTargetResourcesSet()
-
-	for _, container := range pod.Spec.Containers {
-		for resourceName := range container.Resources.Requests {
-			if (*targetResourcesSet).Contains(string(resourceName)) {
-				taintsSetToAdd.Add(string(resourceName))
-			}
-		}
-	}
-
-	for _, container := range pod.Spec.InitContainers {
-		for resourceName := range container.Resources.Requests {
-			if (*targetResourcesSet).Contains(string(resourceName)) {
-				taintsSetToAdd.Add(string(resourceName))
-			}
-		}
-	}
-
-	return &taintsSetToAdd
 }
