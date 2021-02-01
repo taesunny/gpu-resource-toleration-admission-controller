@@ -8,6 +8,6 @@ RUN go build
 
 FROM ubuntu:18.04
 
-LABEL maintainer "Minyoung Park <minyoung_park@tmax.co.kr>,Taesun Lee <taesun_lee@tmax.co.kr>"
+LABEL maintainer "Minyoung Park <minyoung_park@tmax.co.kr>,Taesun Lee <taesun_lee@tmax.co.kr>,Kwanghun Choi <kwanghun_choi@tmax.co.kr>"
 COPY --from=builder /app/gpu-resource-toleration-admission-controller/gpu-resource-toleration-admission-controller /bin/
 CMD ["gpu-resource-toleration-admission-controller"]
