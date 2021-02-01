@@ -204,7 +204,7 @@ func TestGetTaintsToAdd(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tolerationsToAdd := getTolerationsToAdd(test.requestedPod)
+		tolerationsToAdd := GetExtendResourceTolerationsUsedByPod(&test.requestedPod)
 
 		if test.expectedTolerationsToAdd.Equal(*tolerationsToAdd) {
 			t.Logf("Test (%s) Succeed", test.description)
