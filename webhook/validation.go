@@ -122,12 +122,12 @@ func validateGpu(req *v1beta1.AdmissionRequest) error {
 		return fmt.Errorf("could not deserialize pod object: %v", err)
 	}
 
-	extendedResourcesUsedByPod := GetExtendResourceTolerationsUsedByPod(&pod)
+	extendedResourcesUsedByPod := GetExtendResourcesUsedByPod(&pod)
 	extenedResourceTolerationsUsedByPod := GetExtendResourceTolerationsUsedByPod(&pod)
 
 	if !(*extenedResourceTolerationsUsedByPod).IsSubset(*extendedResourcesUsedByPod) {
 		return fmt.Errorf("Forbidden Toleration Usage")
 	}
-	
+
 	return nil
 }
