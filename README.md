@@ -2,7 +2,9 @@
 
 
 ## Webhook for Validating Admission Controller
-If with no GPU Resource Request, Toleration of GPU Resource name can not be added into Pod Spec
+- If with no GPU Resource Request, Toleration of GPU Resource name can not be added into Pod Spec
+- valiation test
+  - https://blog.questionable.services/article/testing-http-handlers-go/
 
 
 ## Webhook for Mutating Admission Controller
