@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"k8s.io/api/admission/v1beta1"
@@ -34,14 +35,14 @@ func HandleMutate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(body) == 0 {
-		klog.Error("Empty body")
+		log.Println("Empty body")
 		http.Error(w, "empty body", http.StatusBadRequest)
 		return
 	}
 
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		klog.Errorf("Content-Type=%s, expect application/json", contentType)
+		log.Printf("Content-Type=%s, expect application/json\n", contentType)
 		http.Error(w, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -50,7 +51,7 @@ func HandleMutate(w http.ResponseWriter, r *http.Request) {
 	ar := v1beta1.AdmissionReview{}
 	_, _, err := Deserializer.Decode(body, nil, &ar)
 	if err != nil {
-		klog.Errorf("Can't decode body: %s", err)
+		log.Printf("Can't decode body: %s\n", err)
 		admissionResponse = &v1beta1.AdmissionResponse{
 			Result: &metav1.Status{
 				Message: err.Error(),
@@ -70,7 +71,7 @@ func HandleMutate(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := json.Marshal(admissionReview)
 	if err != nil {
-		klog.Errorf("Couldn't encode response: %s", err)
+		log.Printf("Couldn't encode response: %s\n", err)
 		http.Error(w, fmt.Sprintf("couldn't encode response: %s", err), http.StatusInternalServerError)
 	}
 
@@ -78,7 +79,7 @@ func HandleMutate(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(resp)
 	if err != nil {
-		klog.Errorf("Couldn't write response: %s", err)
+		log.Printf("Couldn't write response: %s\n", err)
 		http.Error(w, fmt.Sprintf("couldn't write response: %s", err), http.StatusInternalServerError)
 	}
 }
@@ -100,7 +101,7 @@ func mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	tolerationsToAdd := GetExtendResourcesUsedByPod(&pod)
 
 	if (*tolerationsToAdd).Cardinality() == 0 {
-		klog.Infof("No need to mutate, Pod name: %s/%s", pod.Name, pod.Namespace)
+		log.Printf("No need to mutate, Pod name: %s/%s\n", pod.Name, pod.Namespace)
 
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -110,7 +111,7 @@ func mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	patchData, err := getTolerationsPatchData(pod, tolerationsToAdd)
 
 	if err != nil {
-		klog.Errorf("Could not make patch data: %s", err)
+		log.Printf("Could not make patch data: %s\n", err)
 		return &v1beta1.AdmissionResponse{
 			Result: &metav1.Status{
 				Message: err.Error(),
@@ -118,7 +119,7 @@ func mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		}
 	}
 
-	klog.Infof("AdmissionResponse: patch=%s", string(patchData))
+	log.Printf("AdmissionResponse: patch=%s\n", string(patchData))
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Patch:   patchData,

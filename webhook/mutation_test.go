@@ -269,13 +269,30 @@ func TestHttpRequest(t *testing.T) {
 	requestString := string(encodeRequest(&test))
 	requestData := strings.NewReader(requestString)
 
-	r, _ := http.Post(testServer.URL, "application/json", requestData)
-	response := decodeResponse(r.Body)
+	r, _ := http.Post(testServer.URL+"/mutate", "application/json", requestData)
+	review, response := decodeResponse(r.Body)
 
-	println("HTTP Request response : ", response)
+	println("HTTP Request r.Status : ", r.Status)
+	println("HTTP Request r.StatusCode : ", r.StatusCode)
+	println("HTTP Request r.Body : ", response)
+	fmt.Printf("HTTP Request review : %+v\n", review)
+	println("HTTP Request review.Response.UID : ", review.Response.UID)
+	println("HTTP Request review.Response.Allowed : ", review.Response.Allowed)
 
-	// if response.Request.UID != AdmissionRequestNS.Request.UID {
-	// 	t.Error("Request and response UID don't match")
+	if review.Response.Patch != nil {
+		println("HTTP Request review.Response.Patch : ", review.Response.Patch)
+	} else {
+		println("HTTP Request review.Response.Patch is nil")
+	}
+
+	if review.Response.Result != nil {
+		println("HTTP Request review.Response.Result : ", review.Response.Result.Message)
+	} else {
+		println("HTTP Request review.Response.Result is nil")
+	}
+
+	// if review.Request.UID != AdmissionRequestNS.Request.UID {
+	// 	t.Error("Request and review UID don't match")
 	// }
 }
 
@@ -302,13 +319,13 @@ func encodeRequest(review *v1beta1.AdmissionReview) []byte {
 	return data
 }
 
-func decodeResponse(body io.ReadCloser) *v1beta1.AdmissionReview {
+func decodeResponse(body io.ReadCloser) (*v1beta1.AdmissionReview, []byte) {
 	response, _ := ioutil.ReadAll(body)
 
 	review := &v1beta1.AdmissionReview{}
 	Codecs.UniversalDeserializer().Decode(response, nil, review)
 
-	return review
+	return review, response
 }
 
 // func generateKey() {
