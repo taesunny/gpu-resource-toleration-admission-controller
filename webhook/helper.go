@@ -1,6 +1,9 @@
 package webhook
 
 import (
+	"crypto/tls"
+	"fmt"
+	"net/http"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set"
@@ -75,4 +78,31 @@ func GetExtendResourceTolerationsUsedByPod(pod *corev1.Pod) *mapset.Set {
 	}
 
 	return &extenedResourceTolerationsSetUsedByPod
+}
+
+func GetExtendResourceTolerationsToAdd(pod *corev1.Pod) *mapset.Set {
+	newTolerations := GetExtendResourcesUsedByPod(pod)
+	alreadySetExtendResourceTolerations := GetExtendResourceTolerationsUsedByPod(pod)
+
+	for toleration := range (*newTolerations).Iter() {
+		if (*alreadySetExtendResourceTolerations).Contains(toleration) {
+			(*newTolerations).Remove(toleration)
+		}
+	}
+
+	return newTolerations
+}
+
+func GetAdmissionWebhookServer(keyPair tls.Certificate, port int) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mutate", HandleMutate)
+	mux.HandleFunc("/validate", HandleValidate)
+
+	webhookServer := &http.Server{
+		Addr:      fmt.Sprintf(":%d", port),
+		Handler:   mux,
+		TLSConfig: &tls.Config{Certificates: []tls.Certificate{keyPair}},
+	}
+
+	return webhookServer
 }

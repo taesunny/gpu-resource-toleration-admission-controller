@@ -4,8 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
-	"fmt"
-	"net/http"
+
+	// "fmt"
+	// "net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,20 +15,6 @@ import (
 
 	"k8s.io/klog"
 )
-
-func GetAdmissionWebhookServer(keyPair tls.Certificate, port int) *http.Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/mutate", wh.HandleMutate)
-	mux.HandleFunc("/validate", wh.HandleValidate)
-
-	webhookServer := &http.Server{
-		Addr:      fmt.Sprintf(":%d", port),
-		Handler:   mux,
-		TLSConfig: &tls.Config{Certificates: []tls.Certificate{keyPair}},
-	}
-
-	return webhookServer
-}
 
 func main() {
 	var port int
@@ -48,7 +35,7 @@ func main() {
 		klog.Errorf("Failed to load key pair: %s", err)
 	}
 
-	webhookServer := GetAdmissionWebhookServer(keyPair, port)
+	webhookServer := wh.GetAdmissionWebhookServer(keyPair, port)
 
 	klog.Info("Starting xx webhook server...")
 
