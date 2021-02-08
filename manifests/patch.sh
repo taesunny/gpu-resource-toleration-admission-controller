@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [ -z ${service} ] && service=gpu-resource-toleration-admission-controller
-[ -z ${secret} ] && secret=gpu-resource-toleration-admission-controller-certs
+[ -z ${secret} ] && secret=gpu-resource-toleration-admission-controller-webhook-certs
 [ -z ${namespace} ] && namespace=kube-system
 
 if [ ! -x "$(command -v openssl)" ]; then
