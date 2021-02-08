@@ -4,15 +4,15 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"log"
+
 	"fmt"
-	"net/http"
+	// "net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	wh "gpu-resource-toleration-admission-controller/webhook"
-
-	"k8s.io/klog"
 )
 
 func main() {
@@ -31,24 +31,16 @@ func main() {
 
 	keyPair, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		klog.Errorf("Failed to load key pair: %s", err)
+		log.Printf("Failed to load key pair: %s\n", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/mutate", wh.HandleMutate)
-	mux.HandleFunc("/validate", wh.HandleValidate)
+	webhookServer := wh.GetAdmissionWebhookServer(keyPair, port)
 
-	webhookServer := &http.Server{
-		Addr:      fmt.Sprintf(":%d", port),
-		Handler:   mux,
-		TLSConfig: &tls.Config{Certificates: []tls.Certificate{keyPair}},
-	}
-
-	klog.Info("Starting xx webhook server...")
+	fmt.Println("Starting xx webhook server...")
 
 	go func() {
 		if err := webhookServer.ListenAndServeTLS("", ""); err != nil {
-			klog.Errorf("Failed to listen and serve webhook server: %s", err)
+			log.Printf("Failed to listen and serve webhook server: %s\n", err)
 		}
 	}()
 
@@ -56,6 +48,6 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
 
-	klog.Info("OS shutdown signal received...")
+	log.Println("OS shutdown signal received...")
 	webhookServer.Shutdown(context.Background())
 }
