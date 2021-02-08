@@ -65,7 +65,6 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	}
 
 	// Parse the AdmissionReview request
-
 	var admissionReviewReq admissionv1.AdmissionReview
 	if _, _, err := universalDeserializer.Decode(body, nil, &admissionReviewReq); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -76,7 +75,6 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	}
 
 	// Construct the AdmissionReview response
-
 	admissionReviewResponse := admissionv1.AdmissionReview{
 		Response: &admissionv1.AdmissionResponse{
 			UID: admissionReviewReq.Request.UID,
@@ -122,11 +120,40 @@ func validateGpu(req *admissionv1.AdmissionRequest) error {
 		return fmt.Errorf("could not deserialize pod object: %v", err)
 	}
 
-	extendedResourcesUsedByPod := GetExtendResourcesUsedByPod(&pod)
-	extenedResourceTolerationsUsedByPod := GetExtendResourceTolerationsUsedByPod(&pod)
+	if err := validatePodLimits(&pod.Spec); err != nil {
+		return fmt.Errorf("Forbidden Toleration Usage: %v", err)
+	}
 
-	if !(*extenedResourceTolerationsUsedByPod).IsSubset(*extendedResourcesUsedByPod) {
-		return fmt.Errorf("Forbidden Toleration Usage")
+	return nil
+}
+
+func validatePodLimits(podSpec *corev1.PodSpec) error {
+	if len(podSpec.Tolerations) == 0 {
+		return fmt.Errorf("Empty toleration")
+	}
+
+	var resourceNames map[corev1.ResourceName]struct{}
+	resourceNames = make(map[corev1.ResourceName]struct{})
+	for _, container := range podSpec.InitContainers {
+		for resourceName := range container.Resources.Limits {
+			if _, ok := resourceNames[resourceName]; !ok {
+				resourceNames[resourceName] = struct{}{}
+			}
+		}
+	}
+
+	for _, container := range podSpec.Containers {
+		for resourceName := range container.Resources.Limits {
+			if _, ok := resourceNames[resourceName]; !ok {
+				resourceNames[resourceName] = struct{}{}
+			}
+		}
+	}
+
+	for _, toleration := range podSpec.Tolerations {
+		if _, ok := resourceNames[corev1.ResourceName(toleration.Key)]; !ok {
+			return fmt.Errorf("Untolerated key: %v", toleration.Key)
+		}
 	}
 
 	return nil
