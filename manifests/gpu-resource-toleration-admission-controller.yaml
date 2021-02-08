@@ -86,3 +86,26 @@ webhooks:
     apiGroups: [""]
     apiVersions: ["v1"]
     resources: ["pods"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: gpu-resource-toleration-admission-controller
+  labels:
+    app: gpu-resource-toleration-admission-controller
+webhooks:
+- name: gpu-resource-toleration-admission-controller.kube-system.svc
+  objectSelector:
+    matchLabels:
+      app: gpu-resource-toleration-admission-controller
+  clientConfig:
+    service:
+      name: gpu-resource-toleration-admission-controller
+      namespace: kube-system
+      path: "/validate"
+    caBundle: <CA_BUNDLE>
+  rules:
+  - operations: ["CREATE", "UPDATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
