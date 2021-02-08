@@ -73,6 +73,7 @@ webhooks:
   objectSelector:
     matchLabels:
       app: "gpu-resource-toleration-admission-controller"
+  sideEffects: None
   clientConfig:
     service:
       name: gpu-resource-toleration-admission-controller
