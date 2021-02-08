@@ -7,17 +7,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestValidate(t *testing.T) {
 	uid := types.UID("12D3FG")
-	request := v1beta1.AdmissionReview{
+
+	request := admissionv1.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{Kind: "pods", APIVersion: "v1"},
-		Request:  &v1beta1.AdmissionRequest{UID: uid, Resource: podResource},
-		Response: &v1beta1.AdmissionResponse{},
+		Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource},
 	}
 
 	pbytes, err := json.Marshal(request)

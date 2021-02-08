@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,7 +66,7 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
 	// Parse the AdmissionReview request
 
-	var admissionReviewReq v1beta1.AdmissionReview
+	var admissionReviewReq admissionv1.AdmissionReview
 	if _, _, err := universalDeserializer.Decode(body, nil, &admissionReviewReq); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return nil, fmt.Errorf("could not deserialize request: %v", err)
@@ -77,8 +77,8 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
 	// Construct the AdmissionReview response
 
-	admissionReviewResponse := v1beta1.AdmissionReview{
-		Response: &v1beta1.AdmissionResponse{
+	admissionReviewResponse := admissionv1.AdmissionReview{
+		Response: &admissionv1.AdmissionResponse{
 			UID: admissionReviewReq.Request.UID,
 		},
 	}
@@ -105,7 +105,7 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
 // validateGpu validates wether the given request has permission on
 // using GPU device.
-func validateGpu(req *v1beta1.AdmissionRequest) error {
+func validateGpu(req *admissionv1.AdmissionRequest) error {
 	// This handler should only get called on Pod objects.
 	// However, if different kind of object is invoked, issue a log message
 	// but let the object request pass through.
