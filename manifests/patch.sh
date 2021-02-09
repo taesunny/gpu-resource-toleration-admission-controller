@@ -142,8 +142,8 @@ if [[ ${ca} == '' ]]; then
     exit 1
 fi
 
-if ! sed -i "/caBundle/c\    caBundle: $ca" ./gpu-resource-toleration-admission-controller.yaml; then
-    echo "ERROR: patching gpu-resource-toleration-admission-controller.yaml failed"
+if ! sed -i "/caBundle/c\    caBundle: $ca" ./gpu-resource-toleration-admission-controller-config.yaml; then
+    echo "ERROR: patching gpu-resource-toleration-admission-controller-config.yaml failed"
     exit 1
 fi
 
