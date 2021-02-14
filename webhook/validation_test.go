@@ -129,12 +129,8 @@ func TestValidate(t *testing.T) {
 		}
 		req.Header.Set("Content-Type", "application/json")
 
-		// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(HandleValidate)
-
-		// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-		// directly and pass in our Request and ResponseRecorder.
 		handler.ServeHTTP(rr, req)
 
 		// Check the status code is what we expect.
