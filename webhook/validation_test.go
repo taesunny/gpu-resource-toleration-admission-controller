@@ -15,6 +15,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	succeed = "\u2713"
+	failed  = "\u2717"
+)
+
 func marshal(p corev1.Pod) []byte {
 	b, err := json.Marshal(p)
 	if err != nil {
@@ -26,97 +31,180 @@ func marshal(p corev1.Pod) []byte {
 
 func TestValidate(t *testing.T) {
 	uid := types.UID("12D3FG")
-	gpuResourceName := "nvidia.com/gpu" // TODO: gpu device list 관리 필요
-	gpuPod := []corev1.Pod{
-		{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceName(gpuResourceName): *resource.NewQuantity(1, resource.DecimalSI),
-							},
-						},
-					},
-				},
-				Tolerations: []corev1.Toleration{
-					{
-						Key:      gpuResourceName,
-						Operator: "NoSchedule",
-					},
-					{
-						Key:      gpuResourceName,
-						Operator: "NoExecute",
-					},
-				},
-			},
-		},
-		{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceName(gpuResourceName): *resource.NewQuantity(1, resource.DecimalSI),
-							},
+
+	// Set target gpu resources names
+	var targetResources ArrayFlags
+	nvidia := "nvidia.com/gpu"
+	amd := "amd.com/gpu"
+	targetResources.Set(nvidia)
+	targetResources.Set(amd)
+	SetTargetResourcesSet(targetResources)
+
+	gpuPodWithGpuTolerations1 := corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName(nvidia): *resource.NewQuantity(1, resource.DecimalSI),
 						},
 					},
 				},
 			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      nvidia,
+					Operator: "NoSchedule",
+				},
+				{
+					Key:      nvidia,
+					Operator: "NoExecute",
+				},
+			},
 		},
-		{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI),
-							},
+	}
+	gpuPodWithGpuTolerations2 := corev1.Pod{
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName(amd): *resource.NewQuantity(1, resource.DecimalSI),
 						},
 					},
 				},
-				Tolerations: []corev1.Toleration{
-					{
-						Key:      gpuResourceName,
-						Operator: "NoSchedule",
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      amd,
+					Operator: "NoSchedule",
+				},
+				{
+					Key:      amd,
+					Operator: "NoExecute",
+				},
+			},
+		},
+	}
+	gpuPodWithGpuTolerations3 := corev1.Pod{
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceName(nvidia): *resource.NewQuantity(1, resource.DecimalSI),
+						},
 					},
-					{
-						Key:      gpuResourceName,
-						Operator: "NoExecute",
+				},
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      amd,
+					Operator: "NoSchedule",
+				},
+				{
+					Key:      amd,
+					Operator: "NoExecute",
+				},
+			},
+		},
+	}
+	nonGpuPodWithGpuTolerations1 := corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI),
+						},
 					},
+				},
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      nvidia,
+					Operator: "NoSchedule",
+				},
+				{
+					Key:      nvidia,
+					Operator: "NoExecute",
+				},
+			},
+		},
+	}
+	nonGpuPodWithGpuTolerations2 := corev1.Pod{
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI),
+						},
+					},
+				},
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      amd,
+					Operator: "NoSchedule",
+				},
+				{
+					Key:      amd,
+					Operator: "NoExecute",
 				},
 			},
 		},
 	}
 
 	cases := []struct {
-		in   admissionv1.AdmissionReview
-		want string
+		description string
+		in          admissionv1.AdmissionReview
+		want        admissionv1.AdmissionReview
 	}{
 		{
+			description: "A pod with Nvidia GPU which has tolerations",
 			in: admissionv1.AdmissionReview{
 				TypeMeta: metav1.TypeMeta{Kind: "pods", APIVersion: "v1"},
-				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(gpuPod[0])}},
+				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(gpuPodWithGpuTolerations1)}},
 			},
-			want: `{"response":{"uid":"` + string(uid) + `","allowed":true}}`,
+			want: admissionv1.AdmissionReview{Response: &admissionv1.AdmissionResponse{UID: uid, Allowed: true}},
 		},
 		{
+			description: "A pod with AMD GPU which has tolerations",
 			in: admissionv1.AdmissionReview{
 				TypeMeta: metav1.TypeMeta{Kind: "pods", APIVersion: "v1"},
-				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(gpuPod[1])}},
+				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(gpuPodWithGpuTolerations2)}},
 			},
-			want: `{"response":{"uid":"` + string(uid) + `","allowed":false,"status":{"metadata":{},"message":"Forbidden Toleration Usage: Empty toleration"}}}`,
+			want: admissionv1.AdmissionReview{Response: &admissionv1.AdmissionResponse{UID: uid, Allowed: true}},
 		},
 		{
+			description: "A pod with Nvidia GPU which has AMD tolerations",
 			in: admissionv1.AdmissionReview{
 				TypeMeta: metav1.TypeMeta{Kind: "pods", APIVersion: "v1"},
-				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(gpuPod[2])}},
+				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(gpuPodWithGpuTolerations3)}},
 			},
-			want: `{"response":{"uid":"` + string(uid) + `","allowed":false,"status":{"metadata":{},"message":"Forbidden Toleration Usage: Untolerated key: nvidia.com/gpu"}}}`,
+			want: admissionv1.AdmissionReview{Response: &admissionv1.AdmissionResponse{UID: uid, Allowed: false}},
+		},
+		{
+			description: "A pod with no extended resources which has Nvidia tolerations",
+			in: admissionv1.AdmissionReview{
+				TypeMeta: metav1.TypeMeta{Kind: "pods", APIVersion: "v1"},
+				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(nonGpuPodWithGpuTolerations1)}},
+			},
+			want: admissionv1.AdmissionReview{Response: &admissionv1.AdmissionResponse{UID: uid, Allowed: false}},
+		},
+		{
+			description: "A pod with no extended resources which has AMD tolerations",
+			in: admissionv1.AdmissionReview{
+				TypeMeta: metav1.TypeMeta{Kind: "pods", APIVersion: "v1"},
+				Request:  &admissionv1.AdmissionRequest{UID: uid, Resource: podResource, Object: runtime.RawExtension{Raw: marshal(nonGpuPodWithGpuTolerations2)}},
+			},
+			want: admissionv1.AdmissionReview{Response: &admissionv1.AdmissionResponse{UID: uid, Allowed: false}},
 		},
 	}
 
 	for _, c := range cases {
+		t.Logf("\tTest: %v", c.description)
 		pbytes, err := json.Marshal(c.in)
 		if err != nil {
 			t.Errorf("marshaling response: %v", err)
@@ -133,16 +221,13 @@ func TestValidate(t *testing.T) {
 		handler := http.HandlerFunc(HandleValidate)
 		handler.ServeHTTP(rr, req)
 
-		// Check the status code is what we expect.
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-		}
-
-		// Check the response body is what we expect.
-		if rr.Body.String() != c.want {
-			t.Errorf("handler returned unexpected body: got %v want %v",
-				rr.Body.String(), c.want)
+		var admissionReview admissionv1.AdmissionReview
+		_, _, err = universalDeserializer.Decode([]byte(rr.Body.String()), nil, &admissionReview)
+		if admissionReview.Response.Allowed != c.want.Response.Allowed {
+			t.Errorf("\t%s\thandler returned unexpected result: got %v want %v", failed,
+				admissionReview.Response.Allowed, c.want.Response.Allowed)
+		} else {
+			t.Logf("\t%s\thandler returned: %v.", succeed, admissionReview.Response.Allowed)
 		}
 	}
 }
