@@ -29,7 +29,7 @@ func HandleValidate(w http.ResponseWriter, r *http.Request) {
 	klog.Info("Handling validation request ...")
 
 	var writeErr error
-	if bytes, err := validate(w, r); err != nil {
+	if bytes, err := Validate(w, r); err != nil {
 		klog.Errorf("Error handling validation request: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		_, writeErr = w.Write([]byte(err.Error()))
@@ -43,9 +43,9 @@ func HandleValidate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// validate parses the HTTP request for an admission controller webhook. The response body
+// Validate parses the HTTP request for an admission controller webhook. The response body
 // is then returned as raw bytes.
-func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+func Validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	// Request validation. Only handle POST requests with a body and json content type.
 
 	if r.Method != http.MethodPost {
@@ -82,7 +82,7 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	}
 
 	// validate the gpu option
-	if err = validateGpu(admissionReviewReq.Request); err != nil {
+	if err = validateExtendResources(admissionReviewReq.Request); err != nil {
 		// If the handler returned an error, incorporate the error message
 		// into the response and deny the object creation.
 		admissionReviewResponse.Response.Allowed = false
@@ -101,9 +101,9 @@ func validate(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	return bytes, nil
 }
 
-// validateGpu validates wether the given request has permission on
-// using GPU device.
-func validateGpu(req *admissionv1.AdmissionRequest) error {
+// validateExtendResources validates wether the given request has permission on
+// using extended resources.
+func validateExtendResources(req *admissionv1.AdmissionRequest) error {
 	// This handler should only get called on Pod objects.
 	// However, if different kind of object is invoked, issue a log message
 	// but let the object request pass through.
@@ -120,41 +120,11 @@ func validateGpu(req *admissionv1.AdmissionRequest) error {
 		return fmt.Errorf("could not deserialize pod object: %v", err)
 	}
 
-	if err := validatePodLimits(&pod.Spec); err != nil {
-		return fmt.Errorf("Forbidden Toleration Usage: %v", err)
+	extendedResourcesUsedByPod := GetExtendResourcesUsedByPod(&pod)
+	extenedResourceTolerationsUsedByPod := GetExtendResourceTolerationsUsedByPod(&pod)
+
+	if !(*extenedResourceTolerationsUsedByPod).IsSubset(*extendedResourcesUsedByPod) {
+		return fmt.Errorf("Forbidden Toleration Usage")
 	}
-
-	return nil
-}
-
-func validatePodLimits(podSpec *corev1.PodSpec) error {
-	if len(podSpec.Tolerations) == 0 {
-		return fmt.Errorf("Empty toleration")
-	}
-
-	var resourceNames map[corev1.ResourceName]struct{}
-	resourceNames = make(map[corev1.ResourceName]struct{})
-	for _, container := range podSpec.InitContainers {
-		for resourceName := range container.Resources.Limits {
-			if _, ok := resourceNames[resourceName]; !ok {
-				resourceNames[resourceName] = struct{}{}
-			}
-		}
-	}
-
-	for _, container := range podSpec.Containers {
-		for resourceName := range container.Resources.Limits {
-			if _, ok := resourceNames[resourceName]; !ok {
-				resourceNames[resourceName] = struct{}{}
-			}
-		}
-	}
-
-	for _, toleration := range podSpec.Tolerations {
-		if _, ok := resourceNames[corev1.ResourceName(toleration.Key)]; !ok {
-			return fmt.Errorf("Untolerated key: %v", toleration.Key)
-		}
-	}
-
 	return nil
 }
