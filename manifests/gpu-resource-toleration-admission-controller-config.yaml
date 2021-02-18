@@ -40,6 +40,8 @@ webhooks:
       namespace: kube-system
       path: "/validate"
     caBundle: <CA_BUNDLE>
+  admissionReviewVersions: ["v1", "v1beta1"]
+  sideEffects: None
   rules:
   - operations: ["CREATE", "UPDATE"]
     apiGroups: [""]
